@@ -798,6 +798,30 @@
     box-shadow: 0 2px 3px rgba(0,0,0,0.06);
   }
 
+  /* Shade picker — row of little colour circles. */
+  .pdp-min-shades { margin-bottom: 16px; }
+  .pdp-min-shade-header {
+    display: flex; align-items: baseline; gap: 6px;
+    margin-bottom: 10px;
+  }
+  .pdp-min-shade-label { font-size: 12.5px; font-weight: 600; color: #1e242e; }
+  .pdp-min-shade-name { font-size: 12.5px; color: #6b7280; }
+  .pdp-min-swatches { display: flex; flex-wrap: wrap; gap: 12px; }
+  .pdp-min-swatch {
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    background: var(--swatch, #e6c4a0);
+    box-shadow: inset 0 0 0 1px rgba(20,24,32,0.12);
+    transition: transform 0.12s ease, box-shadow 0.12s ease;
+  }
+  .pdp-min-swatch:hover { transform: scale(1.08); }
+  .pdp-min-swatch.selected {
+    box-shadow: inset 0 0 0 1px rgba(20,24,32,0.12), 0 0 0 2px #fff, 0 0 0 4px #1e242e;
+  }
+
   /* Purchase mode card — One-time vs Subscribe with nested tier rows. */
   .pdp-min-purchase {
     border: 1px solid #ebecef;
@@ -2677,11 +2701,14 @@ BRANDS.push(makeBrand({
       'SPF15 · buildable medium coverage',
       'Vegan · silicone-free · 6 shades',
     ],
-    // Subscribe-and-save tiers (renders inside the One-time / Subscribe card).
-    subscriptionTiers: [
-      { title: 'Every 2 months', subtitle: '1 bottle every 2 months', discount: '10%', wasPrice: 21.90, price: 19.71 },
-      { title: 'Every 3 months', subtitle: '1 bottle every 3 months', discount: '15%', wasPrice: 21.90, price: 18.62 },
-      { title: 'Every 4 months', subtitle: '1 bottle every 4 months', discount: '20%', wasPrice: 21.90, price: 17.52 },
+    // Shade options — shown as little colour circles on the PDP.
+    shades: [
+      { name: 'Natural Ivory 01', hex: '#f2dcc6' },
+      { name: 'Cool Ivory 02',    hex: '#ecd4c2' },
+      { name: 'Warm Nude 03',     hex: '#e6c4a0' },
+      { name: 'Cool Honey 04',    hex: '#dcb189' },
+      { name: 'Natural Beige 05', hex: '#cfa078' },
+      { name: 'Warm Almond 06',   hex: '#bd8a60' },
     ],
   },
   listing: {
@@ -3459,60 +3486,34 @@ function renderPdpMinimal(brand, onClose, onChipClick, opts) {
   });
   body.appendChild(askRow);
 
-  // ── Purchase mode card: One-time vs Subscribe (with tier rows) ───
-  const tiers = brand.product.subscriptionTiers || [];
-  if (tiers.length) {
-    const fmtMoney = (n) => brand.product.currency + n.toFixed(2);
-    let tierIdx = 0;
+  // ── Shade picker — little colour circles the user can choose from ───
+  const shades = brand.product.shades || [];
+  if (shades.length) {
+    const shadeWrap = el('div', { class: 'pdp-min-shades' });
 
-    const purchaseCard = el('div', { class: 'pdp-min-purchase' });
+    const nameEl = el('span', { class: 'pdp-min-shade-name' }, shades[0].name);
+    shadeWrap.appendChild(el('div', { class: 'pdp-min-shade-header' },
+      el('span', { class: 'pdp-min-shade-label' }, 'Shade'),
+      nameEl,
+    ));
 
-    const oneTimeOpt = el('div', { class: 'pdp-min-purchase-option selected' },
-      el('div', { class: 'pdp-min-purchase-radio' }),
-      el('div', { class: 'pdp-min-purchase-label' }, 'One-time purchase'),
-    );
-    const subscribeOpt = el('div', { class: 'pdp-min-purchase-option' },
-      el('div', { class: 'pdp-min-purchase-radio' }),
-      el('div', { class: 'pdp-min-purchase-label' }, 'Subscribe and save'),
-    );
-
-    const subOptions = el('div', { class: 'pdp-min-sub-options' });
-    tiers.forEach((tier, i) => {
-      const tierEl = el('div', {
-        class: 'pdp-min-sub-option' + (i === 0 ? ' selected' : ''),
-      },
-        el('div', { class: 'pdp-min-sub-radio' }),
-        el('div', { class: 'pdp-min-sub-text' },
-          el('span', { class: 'pdp-min-sub-title' }, tier.title),
-          el('span', { class: 'pdp-min-sub-subtitle' }, tier.subtitle),
-        ),
-        el('div', { class: 'pdp-min-sub-pricing' },
-          el('span', { class: 'pdp-min-sub-was' }, fmtMoney(tier.wasPrice)),
-          el('span', { class: 'pdp-min-sub-price' }, fmtMoney(tier.price)),
-        ),
-      );
-      tierEl.addEventListener('click', (e) => {
-        e.stopPropagation();
-        tierIdx = i;
-        Array.from(subOptions.children).forEach((child, j) => {
-          child.classList.toggle('selected', j === i);
-        });
+    const swatchRow = el('div', { class: 'pdp-min-swatches' });
+    const swatches = shades.map((s, i) => {
+      const sw = el('button', {
+        class: 'pdp-min-swatch' + (i === 0 ? ' selected' : ''),
+        style: '--swatch:' + s.hex,
+        title: s.name,
+        'aria-label': s.name,
       });
-      subOptions.appendChild(tierEl);
+      sw.addEventListener('click', () => {
+        swatches.forEach((other, j) => other.classList.toggle('selected', j === i));
+        nameEl.textContent = s.name;
+      });
+      return sw;
     });
-
-    const setPurchaseMode = (mode) => {
-      oneTimeOpt.classList.toggle('selected', mode === 'one-time');
-      subscribeOpt.classList.toggle('selected', mode === 'subscribe');
-      subOptions.classList.toggle('open', mode === 'subscribe');
-    };
-    oneTimeOpt.addEventListener('click', () => setPurchaseMode('one-time'));
-    subscribeOpt.addEventListener('click', () => setPurchaseMode('subscribe'));
-
-    purchaseCard.appendChild(oneTimeOpt);
-    purchaseCard.appendChild(subscribeOpt);
-    purchaseCard.appendChild(subOptions);
-    body.appendChild(purchaseCard);
+    swatches.forEach(sw => swatchRow.appendChild(sw));
+    shadeWrap.appendChild(swatchRow);
+    body.appendChild(shadeWrap);
   }
 
   // ── Description + Read more toggle ───────────────────────────────
